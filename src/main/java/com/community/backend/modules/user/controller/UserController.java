@@ -18,7 +18,7 @@ public class UserController {
     @PostMapping
     public ApiResponse<String> createUser(@RequestBody User user) {
         userService.createUser(user);
-        return ApiResponse.success("用户创建成功");
+        return ApiResponse.success("User created successfully");
     }
 
     @GetMapping("/{id}")

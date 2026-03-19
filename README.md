@@ -1,66 +1,80 @@
 # community-backend
 
-这是一个按学习步骤推进的 Spring Boot 社区后端项目。
+Spring Boot 3.x 社区后端学习项目。
 
-当前已经完成：
+当前技术栈：
+- Spring Boot 3.4.x
+- MyBatis-Plus
+- MySQL
+- Redis
+- RabbitMQ
+- Docker
+- JDK 21
 
-- Spring Boot 3.4.x + Maven + Java 21 最小骨架
-- 健康检查接口 `GET /api/health`
+## 当前已完成
+
+- 最小 Spring Boot 项目骨架
+- `GET /api/health` 健康检查接口
 - 统一返回体 `ApiResponse`
-- MySQL、Redis、RabbitMQ 的 `docker-compose.yml`
+- `user` 模块最小 CRUD 首轮验证
+- `docker-compose.yml` 启动 MySQL / Redis / RabbitMQ
+- `sql/init.sql` 提供数据库初始化脚本
 
-## 当前项目结构
+## 项目结构
 
 ```text
 community-backend/
 ├─ docker-compose.yml
+├─ LEARNING_NOTES.md
 ├─ pom.xml
+├─ requests.http
+├─ sql/
+│  └─ init.sql
 ├─ src/
-│  ├─ main/
-│  │  ├─ java/com/community/backend/
-│  │  └─ resources/application.yml
-│  └─ test/
-└─ README.md
+│  └─ main/
+│     ├─ java/com/community/backend/
+│     └─ resources/application.yml
+└─ docker/
+   └─ mysql/data/
 ```
 
-## 第 1 步：本地启动 Spring Boot
+## 新电脑启动步骤
 
-在 IDEA 中直接运行 `CommunityBackendApplication`。
+### 1. 准备环境
 
-或者在你后续配好系统 Maven 后，在项目根目录运行：
+至少需要：
+- JDK 21
+- IntelliJ IDEA 或可用的 Maven 环境
+- Docker Desktop
+
+建议先验证：
 
 ```powershell
-mvn spring-boot:run
+java -version
+docker --version
+docker compose version
 ```
 
-启动成功后访问：
+如果你已经配置了系统 Maven，也可以验证：
 
-```text
-http://localhost:8080/api/health
+```powershell
+mvn -version
 ```
 
-当前预期返回：
+### 2. 拉取代码
 
-```json
-{
-  "code": 200,
-  "message": "OK",
-  "data": {
-    "service": "community-backend",
-    "status": "UP"
-  }
-}
+```powershell
+git clone <你的仓库地址>
+cd community-backend
 ```
 
-## 第 2 步：用 Docker 启动中间件
-
-在项目根目录运行：
+### 3. 启动中间件
 
 ```powershell
 docker compose up -d
 ```
 
-查看容器状态：
+查看状态：
 
 ```powershell
 docker ps
@@ -73,6 +87,70 @@ docker logs community-mysql
 docker logs community-redis
 docker logs community-rabbitmq
 ```
+
+### 4. 数据库初始化说明
+
+项目已提供初始化脚本：
+
+- `sql/init.sql`
+
+并且已经挂载到 MySQL 容器的初始化目录。
+
+注意：
+- 这个脚本只会在 MySQL 数据目录为空时自动执行
+- 如果你之前已经启动过 MySQL，并且 `docker/mysql/data/` 里已经有旧数据，初始化脚本不会再次自动执行
+
+如果你想在新机器上重新初始化数据库，可以先停止容器，再删除本地 MySQL 数据目录，然后重新启动：
+
+```powershell
+docker compose down
+Remove-Item -Recurse -Force .\docker\mysql\data\*
+docker compose up -d
+```
+
+如果你不想删除数据，也可以手动执行 `sql/init.sql` 里的 SQL。
+
+### 5. 启动 Spring Boot
+
+在 IDEA 中直接运行：
+
+- `CommunityBackendApplication`
+
+或者在系统 Maven 已配置好的前提下执行：
+
+```powershell
+mvn spring-boot:run
+```
+
+### 6. 验证接口
+
+健康检查：
+
+```text
+GET http://localhost:8080/api/health
+```
+
+预期返回：
+
+```json
+{
+  "code": 200,
+  "message": "OK",
+  "data": {
+    "service": "community-backend",
+    "status": "UP"
+  }
+}
+```
+
+当前已实现的用户接口：
+
+```text
+POST /api/users
+GET /api/users/{id}
+```
+
+你也可以直接使用 `requests.http` 在 IDEA 的 HTTP Client 中测试接口。
 
 ## 中间件连接信息
 
@@ -96,11 +174,8 @@ docker logs community-rabbitmq
 - Username: `community`
 - Password: `community1234`
 
-## 下一步
+## 说明
 
-下一阶段按顺序做：
-
-1. 配置系统 Maven，确保终端里 `mvn -version` 可用
-2. 验证 `docker compose up -d` 能正常启动中间件
-3. 引入 MyBatis-Plus 和 MySQL 驱动
-4. 创建第一张 `user` 表和基础 CRUD
+- `docker/mysql/data/` 是本地运行数据目录，不会提交到 Git
+- 所以新电脑拉代码后不会自动带上你本机已有的数据库数据
+- 会带上代码、Docker 编排、初始化 SQL、请求示例和学习笔记
