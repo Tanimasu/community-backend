@@ -1,0 +1,12 @@
+### 创建用户
+POST http://localhost:8080/api/users
+Content-Type: application/json
+
+{
+  "username": "test01",
+  "password": "123456",
+  "nickname": "测试用户"
+}
+
+### 根据 ID 查询用户
+GET http://localhost:8080/api/users/1
