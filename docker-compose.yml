@@ -1,4 +1,24 @@
 services:
+  app:
+    build: .
+    container_name: community-app
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      # 生产环境务必换成自己的密钥：JWT_SECRET=xxx docker compose up -d
+      JWT_SECRET: ${JWT_SECRET:-community-backend-dev-only-secret-key-please-change-in-prod}
+      TZ: Asia/Shanghai
+    ports:
+      - "8080:8080"
+    # 等中间件真正可用后再启动，而不是容器一创建就启动
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
   mysql:
     image: mysql:8.4
     container_name: community-mysql
@@ -16,6 +36,12 @@ services:
       - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     # 用 +08:00 而不是 Asia/Shanghai：全新初始化时时区表还没导入，写时区名会导致 MySQL 启动失败
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-time-zone=+08:00
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot1234"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   redis:
     image: redis:7.4
@@ -23,6 +49,11 @@ services:
     restart: unless-stopped
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   rabbitmq:
     image: rabbitmq:4.1-management
@@ -34,3 +65,9 @@ services:
     ports:
       - "5672:5672"
       - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s

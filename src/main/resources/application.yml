@@ -2,7 +2,10 @@ spring:
   application:
     name: community-backend
   datasource:
-    url: jdbc:mysql://localhost:3306/community_db?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8
+    # allowPublicKeyRetrieval=true：MySQL 8 默认用 caching_sha2_password 认证，
+    # 不走 SSL 时驱动需要向服务端索取公钥来加密密码，否则报 Public Key Retrieval is not allowed。
+    # 仅适用于本地开发，生产环境应该改用 SSL 连接
+    url: jdbc:mysql://localhost:3306/community_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8
     username: community
     password: community1234
     listener:

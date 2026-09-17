@@ -1,0 +1,8 @@
+# 构建镜像时不需要发送给 Docker 的内容，越少构建越快
+target/
+docker/
+.git/
+.idea/
+*.iml
+*.log
+.DS_Store

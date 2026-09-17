@@ -29,11 +29,14 @@ Spring Boot 3.x 社区后端学习项目。
 - 帖子详情 Redis 缓存（Cache Aside，数据变更后删除缓存）
 - 通知：评论/点赞后通过 RabbitMQ 异步生成通知，支持通知列表、未读数、标记已读
 - RabbitMQ 消费失败重试 3 次后进入死信队列
+- 应用容器化：`Dockerfile` 多阶段构建，`docker compose up -d` 一键拉起全套环境
 
 ## 项目结构
 
 ```text
 community-backend/
+├─ Dockerfile
+├─ .dockerignore
 ├─ docker-compose.yml
 ├─ LEARNING_NOTES.md
 ├─ pom.xml
@@ -43,9 +46,50 @@ community-backend/
 ├─ src/
 │  └─ main/
 │     ├─ java/com/community/backend/
-│     └─ resources/application.yml
+│     └─ resources/
+│        ├─ application.yml          # 本地开发：连 localhost
+│        └─ application-docker.yml   # 容器内运行：连服务名
 └─ docker/
    └─ mysql/data/
+```
+
+## 两种运行方式
+
+| 方式 | 说明 | 适合场景 |
+|---|---|---|
+| 应用本地跑 + 中间件 Docker 跑 | `docker compose up -d mysql redis rabbitmq` + IDEA 运行 | 日常开发，改代码可以热重启 |
+| 全部 Docker 跑 | `docker compose up -d` | 验证部署效果、给别人演示 |
+
+两种方式都占用 8080 端口，不能同时启动。
+
+### 一键启动（全部容器化）
+
+```bash
+docker compose up -d
+```
+
+首次执行会构建应用镜像，需要几分钟。之后改了代码要重新构建：
+
+```bash
+docker compose up -d --build app
+```
+
+查看应用日志：
+
+```bash
+docker compose logs -f app
+```
+
+停止全部容器：
+
+```bash
+docker compose down
+```
+
+生产环境务必替换 JWT 密钥：
+
+```bash
+JWT_SECRET=你的密钥 docker compose up -d
 ```
 
 ## 新电脑启动步骤
@@ -128,7 +172,7 @@ ALTER TABLE `user` ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'USER' AFTER nic
 
 同理，第 5 阶段新增的 `post`、`comment`、`like_record` 表也需要手动执行 `sql/init.sql` 中对应的 `CREATE TABLE` 语句（脚本使用了 `IF NOT EXISTS`，整份重新执行也是安全的）。
 
-### 5. 启动 Spring Boot
+### 5. 启动 Spring Boot（本地开发方式）
 
 在 IDEA 中直接运行：
 
