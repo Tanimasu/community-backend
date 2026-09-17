@@ -10,3 +10,15 @@ Content-Type: application/json
 
 ### 根据 ID 查询用户
 GET http://localhost:8080/api/users/1
+
+### Redis：写入一个带 60 秒过期时间的 key
+POST http://localhost:8080/api/demo/redis?key=hello&value=world&ttlSeconds=60
+
+### Redis：读取 key（同时返回剩余过期时间）
+GET http://localhost:8080/api/demo/redis/hello
+
+### RabbitMQ：发送一条消息
+POST http://localhost:8080/api/demo/mq?content=hello-rabbitmq
+
+### RabbitMQ：查看消费者最近收到的消息
+GET http://localhost:8080/api/demo/mq/received

@@ -19,6 +19,8 @@ Spring Boot 3.x 社区后端学习项目。
 - `user` 模块最小 CRUD 首轮验证
 - `docker-compose.yml` 启动 MySQL / Redis / RabbitMQ
 - `sql/init.sql` 提供数据库初始化脚本
+- Redis set/get 示例（`/api/demo/redis`）
+- RabbitMQ 发送与消费示例（`/api/demo/mq`）
 
 ## 项目结构
 
@@ -148,6 +150,15 @@ GET http://localhost:8080/api/health
 ```text
 POST /api/users
 GET /api/users/{id}
+```
+
+中间件示例接口：
+
+```text
+POST /api/demo/redis?key=hello&value=world&ttlSeconds=60
+GET  /api/demo/redis/{key}
+POST /api/demo/mq?content=hello
+GET  /api/demo/mq/received
 ```
 
 你也可以直接使用 `requests.http` 在 IDEA 的 HTTP Client 中测试接口。

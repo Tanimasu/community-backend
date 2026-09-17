@@ -6,6 +6,15 @@ spring:
     username: community
     password: community1234
     driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: community
+    password: community1234
 
 server:
   port: 8080
