@@ -84,8 +84,31 @@ Authorization: Bearer {{accessToken}}
   "content": "沙发！"
 }
 
-### 评论列表（分页，游客可访问）
+### 评论列表（分页，游客可访问；带 Token 时会返回当前用户是否点赞）
 GET http://localhost:8080/api/posts/{{postId}}/comments?page=1&pageSize=20
+Authorization: Bearer {{accessToken}}
+
+### 给帖子点赞（liked=false 为取消点赞，重复提交结果不变）
+POST http://localhost:8080/api/likes
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "targetType": "POST",
+  "targetId": {{postId}},
+  "liked": true
+}
+
+### 给评论点赞
+POST http://localhost:8080/api/likes
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "targetType": "COMMENT",
+  "targetId": 1,
+  "liked": true
+}
 
 
 ### Redis：写入一个带 60 秒过期时间的 key

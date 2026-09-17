@@ -8,12 +8,15 @@ import com.community.backend.modules.comment.dto.CommentResponse;
 import com.community.backend.modules.comment.dto.CreateCommentRequest;
 import com.community.backend.modules.comment.entity.Comment;
 import com.community.backend.modules.comment.mapper.CommentMapper;
+import com.community.backend.modules.like.entity.LikeTargetType;
+import com.community.backend.modules.like.service.LikeService;
 import com.community.backend.modules.post.service.PostService;
 import com.community.backend.modules.user.dto.UserBriefResponse;
 import com.community.backend.modules.user.entity.User;
 import com.community.backend.modules.user.service.UserService;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,11 +26,16 @@ public class CommentService {
     private final CommentMapper commentMapper;
     private final PostService postService;
     private final UserService userService;
+    private final LikeService likeService;
 
-    public CommentService(CommentMapper commentMapper, PostService postService, UserService userService) {
+    public CommentService(CommentMapper commentMapper,
+                          PostService postService,
+                          UserService userService,
+                          LikeService likeService) {
         this.commentMapper = commentMapper;
         this.postService = postService;
         this.userService = userService;
+        this.likeService = likeService;
     }
 
     // 插入评论和帖子评论数 +1 要么都成功，要么都回滚
@@ -45,10 +53,11 @@ public class CommentService {
         postService.increaseCommentCount(postId);
 
         Comment saved = commentMapper.selectById(comment.getId());
-        return CommentResponse.from(saved, UserBriefResponse.from(userService.getUserById(userId)));
+        return CommentResponse.from(saved, UserBriefResponse.from(userService.getUserById(userId)), false);
     }
 
-    public PageResult<CommentResponse> listComments(Long postId, PageQuery pageQuery) {
+    // currentUserId 为 null 表示游客
+    public PageResult<CommentResponse> listComments(Long postId, PageQuery pageQuery, Long currentUserId) {
         postService.getPostOrThrow(postId);
 
         // 评论按时间正序，先发的在前面；(post_id, id) 联合索引正好覆盖这个查询
@@ -59,8 +68,13 @@ public class CommentService {
 
         List<Comment> comments = page.getRecords();
         Map<Long, User> authors = userService.getUserMap(comments.stream().map(Comment::getUserId).toList());
+        Set<Long> likedCommentIds = likeService.getLikedTargetIds(currentUserId, LikeTargetType.COMMENT,
+                comments.stream().map(Comment::getId).toList());
         List<CommentResponse> list = comments.stream()
-                .map(comment -> CommentResponse.from(comment, UserBriefResponse.from(authors.get(comment.getUserId()))))
+                .map(comment -> CommentResponse.from(
+                        comment,
+                        UserBriefResponse.from(authors.get(comment.getUserId())),
+                        likedCommentIds.contains(comment.getId())))
                 .toList();
         return PageResult.of(page, list);
     }

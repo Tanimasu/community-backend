@@ -11,6 +11,8 @@ public record PostResponse(
         UserBriefResponse author,
         Integer commentCount,
         Integer likeCount,
+        // 当前用户是否点赞过；每个用户不一样，所以不放进缓存，查询时再填
+        boolean liked,
         LocalDateTime createTime
 ) {
 
@@ -22,7 +24,12 @@ public record PostResponse(
                 author,
                 post.getCommentCount(),
                 post.getLikeCount(),
+                false,
                 post.getCreateTime()
         );
+    }
+
+    public PostResponse withLiked(boolean liked) {
+        return new PostResponse(id, title, content, author, commentCount, likeCount, liked, createTime);
     }
 }

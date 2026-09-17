@@ -30,3 +30,13 @@ CREATE TABLE IF NOT EXISTS comment (
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_comment_post_id (post_id, id)
 );
+
+CREATE TABLE IF NOT EXISTS like_record (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    target_type VARCHAR(20) NOT NULL,
+    target_id BIGINT NOT NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_like_user_target (user_id, target_type, target_id),
+    INDEX idx_like_target (target_type, target_id)
+);

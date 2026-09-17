@@ -25,6 +25,8 @@ Spring Boot 3.x 社区后端学习项目。
 - 全局异常处理与参数校验
 - 帖子：发帖、分页列表、详情
 - 评论：发表评论、分页列表
+- 点赞：帖子/评论点赞与取消点赞，列表和详情返回当前用户是否已点赞
+- 帖子详情 Redis 缓存（Cache Aside，数据变更后删除缓存）
 
 ## 项目结构
 
@@ -122,7 +124,7 @@ docker compose up -d
 ALTER TABLE `user` ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'USER' AFTER nickname;
 ```
 
-同理，第 5 阶段新增的 `post`、`comment` 表也需要手动执行 `sql/init.sql` 中对应的 `CREATE TABLE` 语句（脚本使用了 `IF NOT EXISTS`，整份重新执行也是安全的）。
+同理，第 5 阶段新增的 `post`、`comment`、`like_record` 表也需要手动执行 `sql/init.sql` 中对应的 `CREATE TABLE` 语句（脚本使用了 `IF NOT EXISTS`，整份重新执行也是安全的）。
 
 ### 5. 启动 Spring Boot
 
@@ -183,6 +185,13 @@ GET  /api/posts/{postId}/comments?page=1&pageSize=20
 POST /api/posts/{postId}/comments
 ```
 
+点赞接口（需要 Token）：
+
+```text
+POST /api/likes
+{ "targetType": "POST | COMMENT", "targetId": 1, "liked": true }
+```
+
 分页返回格式：
 
 ```json
@@ -210,6 +219,7 @@ GET  /api/demo/mq/received
 - Host: `localhost`
 - Port: `3306`
 - Database: `community_db`
+- 时区: `+08:00`（在 `docker-compose.yml` 中通过 `--default-time-zone` 配置）
 - Username: `community`
 - Password: `community1234`
 

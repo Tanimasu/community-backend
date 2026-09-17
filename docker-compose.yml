@@ -8,12 +8,14 @@ services:
       MYSQL_DATABASE: community_db
       MYSQL_USER: community
       MYSQL_PASSWORD: community1234
+      TZ: Asia/Shanghai
     ports:
       - "3306:3306"
     volumes:
       - ./docker/mysql/data:/var/lib/mysql
       - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    # 用 +08:00 而不是 Asia/Shanghai：全新初始化时时区表还没导入，写时区名会导致 MySQL 启动失败
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-time-zone=+08:00
 
   redis:
     image: redis:7.4

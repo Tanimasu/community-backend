@@ -23,9 +23,11 @@ public class CommentController {
 
     @GetMapping
     public ApiResponse<PageResult<CommentResponse>> listComments(@PathVariable Long postId,
+                                                                 @AuthenticationPrincipal LoginUser loginUser,
                                                                  @RequestParam(defaultValue = "1") long page,
                                                                  @RequestParam(defaultValue = "20") long pageSize) {
-        return ApiResponse.success(commentService.listComments(postId, new PageQuery(page, pageSize)));
+        Long currentUserId = loginUser != null ? loginUser.id() : null;
+        return ApiResponse.success(commentService.listComments(postId, new PageQuery(page, pageSize), currentUserId));
     }
 
     @PostMapping

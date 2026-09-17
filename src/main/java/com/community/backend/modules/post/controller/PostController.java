@@ -22,19 +22,26 @@ public class PostController {
     }
 
     @GetMapping
-    public ApiResponse<PageResult<PostResponse>> listPosts(@RequestParam(defaultValue = "1") long page,
+    public ApiResponse<PageResult<PostResponse>> listPosts(@AuthenticationPrincipal LoginUser loginUser,
+                                                           @RequestParam(defaultValue = "1") long page,
                                                            @RequestParam(defaultValue = "10") long pageSize) {
-        return ApiResponse.success(postService.listPosts(new PageQuery(page, pageSize)));
+        return ApiResponse.success(postService.listPosts(new PageQuery(page, pageSize), currentUserId(loginUser)));
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<PostResponse> getPost(@PathVariable Long id) {
-        return ApiResponse.success(postService.getPost(id));
+    public ApiResponse<PostResponse> getPost(@AuthenticationPrincipal LoginUser loginUser,
+                                             @PathVariable Long id) {
+        return ApiResponse.success(postService.getPost(id, currentUserId(loginUser)));
     }
 
     @PostMapping
     public ApiResponse<PostResponse> createPost(@AuthenticationPrincipal LoginUser loginUser,
                                                 @Valid @RequestBody CreatePostRequest request) {
         return ApiResponse.success(postService.createPost(loginUser.id(), request));
+    }
+
+    // GET 接口游客也能访问：带了有效 Token 时 loginUser 有值，否则为 null
+    private Long currentUserId(LoginUser loginUser) {
+        return loginUser != null ? loginUser.id() : null;
     }
 }
