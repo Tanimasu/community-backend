@@ -16,5 +16,11 @@ spring:
     username: community
     password: community1234
 
+jwt:
+  # 开发用密钥，至少 32 个字节；生产环境通过环境变量 JWT_SECRET 覆盖
+  secret: ${JWT_SECRET:community-backend-dev-only-secret-key-please-change-in-prod}
+  access-token-ttl: 15m
+  refresh-token-ttl: 7d
+
 server:
   port: 8080

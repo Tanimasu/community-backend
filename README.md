@@ -21,6 +21,8 @@ Spring Boot 3.x 社区后端学习项目。
 - `sql/init.sql` 提供数据库初始化脚本
 - Redis set/get 示例（`/api/demo/redis`）
 - RabbitMQ 发送与消费示例（`/api/demo/mq`）
+- Spring Security + JWT 认证：注册、登录、刷新令牌、登出、获取当前用户
+- 全局异常处理与参数校验
 
 ## 项目结构
 
@@ -112,6 +114,12 @@ docker compose up -d
 
 如果你不想删除数据，也可以手动执行 `sql/init.sql` 里的 SQL。
 
+如果数据库是第 4 阶段之前初始化的，`user` 表还没有 `role` 字段，需要手动补上：
+
+```sql
+ALTER TABLE `user` ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'USER' AFTER nickname;
+```
+
 ### 5. 启动 Spring Boot
 
 在 IDEA 中直接运行：
@@ -145,12 +153,24 @@ GET http://localhost:8080/api/health
 }
 ```
 
-当前已实现的用户接口：
+认证接口（无需 Token）：
 
 ```text
-POST /api/users
+POST /api/auth/register
+POST /api/auth/login
+POST /api/auth/refresh
+POST /api/auth/logout
+```
+
+用户接口（需要请求头 `Authorization: Bearer <accessToken>`）：
+
+```text
+GET /api/users/me
 GET /api/users/{id}
 ```
+
+- Access Token 有效期 15 分钟，Refresh Token 有效期 7 天
+- Refresh Token 状态保存在 Redis（`auth:refresh:<tokenId>`），每次刷新都会换发新的，旧的立即失效
 
 中间件示例接口：
 

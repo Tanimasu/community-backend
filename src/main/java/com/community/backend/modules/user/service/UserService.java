@@ -1,5 +1,6 @@
 package com.community.backend.modules.user.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.community.backend.modules.user.entity.User;
 import com.community.backend.modules.user.mapper.UserMapper;
 import org.springframework.stereotype.Service;
@@ -19,5 +20,10 @@ public class UserService {
 
     public User getUserById(Long id) {
         return userMapper.selectById(id);
+    }
+
+    public User getByUsername(String username) {
+        return userMapper.selectOne(new LambdaQueryWrapper<User>()
+                .eq(User::getUsername, username));
     }
 }

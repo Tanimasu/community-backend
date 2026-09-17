@@ -1,5 +1,8 @@
-### 创建用户
-POST http://localhost:8080/api/users
+### 健康检查
+GET http://localhost:8080/api/health
+
+### 注册
+POST http://localhost:8080/api/auth/register
 Content-Type: application/json
 
 {
@@ -8,8 +11,52 @@ Content-Type: application/json
   "nickname": "测试用户"
 }
 
-### 根据 ID 查询用户
+### 登录（成功后自动保存 accessToken / refreshToken，给下面的请求使用）
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "username": "test01",
+  "password": "123456"
+}
+
+> {%
+    client.global.set("accessToken", response.body.data.accessToken);
+    client.global.set("refreshToken", response.body.data.refreshToken);
+%}
+
+### 获取当前登录用户（需要 Token）
+GET http://localhost:8080/api/users/me
+Authorization: Bearer {{accessToken}}
+
+### 不带 Token 访问受保护接口（预期 401）
+GET http://localhost:8080/api/users/me
+
+### 根据 ID 查询用户（需要 Token）
 GET http://localhost:8080/api/users/1
+Authorization: Bearer {{accessToken}}
+
+### 刷新令牌（旧的 refreshToken 用过一次就失效）
+POST http://localhost:8080/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+> {%
+    client.global.set("accessToken", response.body.data.accessToken);
+    client.global.set("refreshToken", response.body.data.refreshToken);
+%}
+
+### 登出（让当前 refreshToken 失效）
+POST http://localhost:8080/api/auth/logout
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
 
 ### Redis：写入一个带 60 秒过期时间的 key
 POST http://localhost:8080/api/demo/redis?key=hello&value=world&ttlSeconds=60
