@@ -536,9 +536,48 @@ Redis 的使用方式固定为：
 - Spring Boot 从 2.6 开始默认禁止循环依赖，A 依赖 B、B 又依赖 A 会直接启动失败。
 - 遇到循环依赖时，让其中一方依赖更底层的东西。例如 `LikeService` 不依赖 `PostService`，而是直接用 `PostMapper`。
 
+### 二十八、应用容器化
+
+- Dockerfile 用多阶段构建：第一阶段用 Maven 镜像编译打包，第二阶段只用 JRE 镜像跑 jar。
+- 这样最终镜像里没有 Maven、没有源码、没有编译缓存，体积小很多。
+- 在容器里编译的好处是别人不装 JDK 和 Maven 也能构建，环境完全一致。
+- `COPY pom.xml` 和 `COPY src` 要分开写：Docker 一层层构建，只要 pom.xml 没变，下载依赖那一层就复用缓存，改代码时不用重新下载依赖。
+- 如果一开始就 `COPY . .`，改一行代码都要重新下载全部依赖。
+- 用 `USER` 指定普通用户运行应用，不要用 root。
+- 容器默认时区是 UTC，要设 `ENV TZ=Asia/Shanghai`，否则日志时间和数据库时间差 8 小时。
+- `.dockerignore` 的作用和 `.gitignore` 类似，避免把 `target/`、`.git/`、`.idea/` 发给 Docker 拖慢构建。
+
+### 二十九、容器内的网络
+
+- **容器里的 `localhost` 指的是容器自己**，不是宿主机，所以应用容器里连 `localhost:3306` 是连不上 MySQL 的。
+- Docker Compose 会自动建网络，并把服务名注册成域名，所以容器之间用服务名互相访问：`mysql`、`redis`、`rabbitmq`。
+- 本地开发时能用 `localhost`，是因为 compose 做了端口映射，把容器端口映射到了宿主机。
+- 用 Spring Profile 区分两种环境：`application.yml` 是本地开发（localhost），`application-docker.yml` 只写不同的部分（服务名），用 `SPRING_PROFILES_ACTIVE=docker` 激活。
+- 启动日志里能看到 `The following 1 profile is active: "docker"`。
+
+### 三十、depends_on 和健康检查
+
+- `depends_on` 默认只保证"容器已启动"，**不保证"服务可用"**。
+- MySQL 容器启动后内部初始化还要几十秒，应用这时去连会直接启动失败。
+- 正确做法是给中间件配 `healthcheck`，再用 `depends_on: condition: service_healthy`。
+- `start_period` 用来给初始化留时间，这段时间内的失败不计入重试次数。
+
+### 三十一、配置与密钥
+
+- 密钥、密码不要写死在镜像里，要用环境变量注入：`JWT_SECRET: ${JWT_SECRET:-默认值}`。
+- `${VAR:-默认值}` 是 compose 的默认值语法，不设环境变量时用默认值。
+- 生产环境启动：`JWT_SECRET=真实密钥 docker compose up -d`。
+
+### 三十二、MySQL 8 认证的坑
+
+- 报错 `Public Key Retrieval is not allowed` 的原因：MySQL 8 默认用 `caching_sha2_password` 认证，不走 SSL 时驱动需要向服务端索取公钥来加密密码，而驱动默认不允许。
+- 本地开发时一直没遇到，是因为之前用命令行登录过，服务端缓存了认证信息，应用走的是快速通道。重建 MySQL 容器后缓存清空，问题才暴露。
+- 解决办法：连接串加 `allowPublicKeyRetrieval=true`（仅限本地开发，生产环境应该用 SSL）。
+- 教训：**有些问题一直存在，只是被缓存掩盖了**，换电脑或重建容器时才会突然冒出来。
+
 ## 当前进度
 
-第 1 到第 5 阶段已经全部完成，第 6 阶段（应用容器化）还没开始。
+第 1 到第 6 阶段已全部完成，首版规划的功能都实现了。
 
 - 已完成 Spring Boot 骨架、健康检查接口、统一返回体
 - 已完成 Docker 中间件（MySQL / Redis / RabbitMQ）的启动和验证
@@ -552,24 +591,23 @@ Redis 的使用方式固定为：
 - 已完成点赞模块：帖子/评论点赞与取消，计数与状态正确
 - 已完成通知模块：通知列表、未读数、标记已读
 - 已修复 MySQL 时区问题
-- 开发环境已经从 Windows 迁移到 macOS，两边都能跑
+- 已完成应用容器化：`docker compose up -d` 一键拉起 app + 三个中间件
+- 开发环境在 Windows 和 macOS 上都能跑
 
-第 5 阶段验收标准已全部达成，首版规划的 13 个接口也都实现了。
+现在项目有两种运行方式：
+
+- 应用本地跑 + 中间件 Docker 跑：日常开发用，改代码能快速重启
+- 全部 Docker 跑：验证部署效果、给别人演示
+
+两种方式都占用 8080 端口，不能同时启动。
 
 ## 下一步
 
-进入第 6 阶段：应用容器化和一键启动。
+六个阶段的计划已经走完，后面可以按兴趣选方向：
 
-1. 编写 Dockerfile，把 Spring Boot 应用打包成镜像
-2. 为应用增加 `docker` profile，区分开发态和部署态配置
-3. 理解容器内为什么不能再用 `localhost` 连其他容器，改成用服务名互联
-4. 调整 `docker-compose.yml`，把 app + mysql + redis + rabbitmq 一起编排
-5. 执行整套 `docker compose up -d`，验证接口在容器化环境下可正常访问
-
-后续可以继续优化的方向（不属于首版范围）：
-
-- 高并发点赞改用 Redis 计数，定时批量写回数据库
-- 未读通知数用 Redis 缓存
-- 消费端做幂等，避免重复消费产生重复通知
-- Redis 故障时降级为直接查数据库
-- 补充单元测试和集成测试
+1. 补测试：目前一行测试都没有。可以用 `@SpringBootTest` 加 Testcontainers，自动起临时 MySQL 跑集成测试
+2. 接口文档：接入 SpringDoc（Swagger），自动生成在线文档
+3. 镜像优化：用 Spring Boot 的分层 jar，改代码时只重建最后一层
+4. CI：GitHub Actions，push 时自动构建和测试
+5. 补业务：删除/编辑帖子、用户主页、关注、搜索
+6. 性能优化：高并发点赞改用 Redis 计数定时回写、未读数缓存、消费端幂等、Redis 故障降级
