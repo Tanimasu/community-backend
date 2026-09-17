@@ -7,6 +7,7 @@ import com.community.backend.security.SecurityErrorHandler;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -38,6 +39,8 @@ public class SecurityConfig {
                                 "/api/auth/refresh",
                                 "/api/auth/logout"
                         ).permitAll()
+                        // 帖子和评论允许游客浏览，发帖、评论仍需要登录
+                        .requestMatchers(HttpMethod.GET, "/api/posts", "/api/posts/**").permitAll()
                         // 第 3 阶段的中间件示例接口，方便测试先放行
                         .requestMatchers("/api/demo/**").permitAll()
                         // Spring Boot 出错时会转发到 /error，不放行的话真实错误会被 401 盖住

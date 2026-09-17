@@ -57,6 +57,36 @@ Content-Type: application/json
   "refreshToken": "{{refreshToken}}"
 }
 
+### 发帖（需要 Token）
+POST http://localhost:8080/api/posts
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "title": "第一篇帖子",
+  "content": "大家好，这是我的第一篇帖子"
+}
+
+> {% client.global.set("postId", response.body.data.id); %}
+
+### 帖子列表（分页，游客可访问）
+GET http://localhost:8080/api/posts?page=1&pageSize=10
+
+### 帖子详情（游客可访问）
+GET http://localhost:8080/api/posts/{{postId}}
+
+### 发表评论（需要 Token）
+POST http://localhost:8080/api/posts/{{postId}}/comments
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "content": "沙发！"
+}
+
+### 评论列表（分页，游客可访问）
+GET http://localhost:8080/api/posts/{{postId}}/comments?page=1&pageSize=20
+
 
 ### Redis：写入一个带 60 秒过期时间的 key
 POST http://localhost:8080/api/demo/redis?key=hello&value=world&ttlSeconds=60

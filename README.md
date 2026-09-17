@@ -23,6 +23,8 @@ Spring Boot 3.x 社区后端学习项目。
 - RabbitMQ 发送与消费示例（`/api/demo/mq`）
 - Spring Security + JWT 认证：注册、登录、刷新令牌、登出、获取当前用户
 - 全局异常处理与参数校验
+- 帖子：发帖、分页列表、详情
+- 评论：发表评论、分页列表
 
 ## 项目结构
 
@@ -120,6 +122,8 @@ docker compose up -d
 ALTER TABLE `user` ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'USER' AFTER nickname;
 ```
 
+同理，第 5 阶段新增的 `post`、`comment` 表也需要手动执行 `sql/init.sql` 中对应的 `CREATE TABLE` 语句（脚本使用了 `IF NOT EXISTS`，整份重新执行也是安全的）。
+
 ### 5. 启动 Spring Boot
 
 在 IDEA 中直接运行：
@@ -167,6 +171,22 @@ POST /api/auth/logout
 ```text
 GET /api/users/me
 GET /api/users/{id}
+```
+
+帖子与评论接口（GET 游客可访问，POST 需要 Token）：
+
+```text
+GET  /api/posts?page=1&pageSize=10
+GET  /api/posts/{id}
+POST /api/posts
+GET  /api/posts/{postId}/comments?page=1&pageSize=20
+POST /api/posts/{postId}/comments
+```
+
+分页返回格式：
+
+```json
+{ "page": 1, "pageSize": 10, "total": 3, "list": [] }
 ```
 
 - Access Token 有效期 15 分钟，Refresh Token 有效期 7 天
