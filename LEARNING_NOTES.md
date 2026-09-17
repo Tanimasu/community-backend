@@ -410,24 +410,166 @@ Redis 的使用方式固定为：
   - 数据是否真的插入成功
   - 控制台异常栈说了什么
 
+### 十三、开发环境换到 macOS
+
+- 项目最早固定在 `D:\CodeField\community-backend`，现在在 macOS 上也跑通了，路径是 `~/Codefield/community-backend`。
+- macOS 上用 Homebrew 装 JDK 21、Maven 和 Docker Desktop。
+- Homebrew 装的 JDK 不会自动注册给系统，要在 `~/.zshrc` 里配置 `JAVA_HOME`。
+- macOS 自带的 `/usr/bin/java` 会读 `JAVA_HOME`，所以配好 `JAVA_HOME` 后 `java -version` 就是对的。
+- 装 Maven 时会顺带装最新版 JDK，所以更要显式指定 `JAVA_HOME`，否则用的不是 21。
+- 结论：代码是跨平台的，真正需要适配的是环境变量和命令行工具。
+
+### 十四、Redis 最小使用
+
+- `spring-boot-starter-data-redis` 会自动提供 `StringRedisTemplate`。
+- `StringRedisTemplate` 把 key 和 value 都当字符串存，在 `redis-cli` 里能直接看懂。
+- 另一个 `RedisTemplate` 默认用 Java 序列化，存进去在 `redis-cli` 里是乱码。
+- `opsForValue()` 对应 Redis 的 String 类型，`set` 就是 `SET`，带过期时间的 `set` 就是 `SET key value EX 秒数`。
+- `getExpire` 返回 `-1` 表示永不过期，`-2` 表示 key 不存在。
+- Redis 没有"表"的概念，所以 key 要用 `业务:xxx` 这种前缀区分，例如 `post:detail:1`、`auth:refresh:xxx`。
+
+### 十五、RabbitMQ 最小使用
+
+- 生产者不直接发给队列，而是发给交换机（Exchange），交换机按 routing key 投递到队列。
+- `DirectExchange` 是最简单的交换机：routing key 完全匹配才投递。
+- Exchange、Queue、Binding 都注册成 `@Bean`，应用启动时会自动在 RabbitMQ 里创建。
+- `Jackson2JsonMessageConverter` 让消息体是 JSON，管理后台里能看懂；不配的话默认用 Java 序列化。
+- `@RabbitListener` 的方法运行在独立线程里，日志中的线程名是 `ntContainer#x-x`，不是处理 HTTP 请求的线程。
+- 接口把消息发出去就返回了，不代表消息已经被处理，这就是异步。
+
+### 十六、Spring Security + JWT
+
+- 加了 Spring Security 依赖之后，默认所有接口都需要登录，要在 `SecurityFilterChain` 里显式放行。
+- 前后端分离 + Token 认证时，CSRF、表单登录、Basic 认证都可以关掉，Session 也设为 `STATELESS`。
+- 放行 `/error` 很重要：Controller 抛异常时 Spring Boot 会转发到 `/error`，不放行的话真实错误会被 401 盖住。
+- JWT 由 `header.payload.signature` 三段组成，payload 只是 Base64 编码，**不是加密**，绝对不能放密码。
+- JWT 的安全性来自签名：改了 payload 签名就对不上。
+- 自定义的 JWT 过滤器不要加 `@Component`，否则会被 Spring Boot 再注册一次，一个请求被处理两遍。
+- 过滤器只负责"认出你是谁"，Token 无效时不抛异常，放行与否交给授权规则决定。
+- 401 和 403 发生在过滤器阶段，`@RestControllerAdvice` 捕获不到，要实现 `AuthenticationEntryPoint` 和 `AccessDeniedHandler` 自己写 JSON。
+
+### 十七、Access Token 与 Refresh Token
+
+- JWT 一旦签发，在过期前无法撤销，所以 Access Token 要设得短（15 分钟）。
+- Refresh Token 设得长（7 天），用来换新的 Access Token，用户不用频繁登录。
+- Refresh Token 的状态存在 Redis 里，它就变成可撤销的：登出时删掉 key 即可。
+- 每个 Refresh Token 只能用一次，刷新时换发新的，旧的立即失效。
+- 判断有效性用 Redis `delete` 的返回值，而不是"先查再删"。`delete` 是原子操作，并发时只有一个能成功。
+- Token 里要有 `type` 字段区分 access / refresh，否则长期有效的 Refresh Token 能直接当 Access Token 用。
+- 登出后 Access Token 在剩余有效期内仍然能用，这是"无状态"的取舍。要立刻失效就得每次请求查黑名单，那就不是无状态了。
+
+### 十八、密码与安全细节
+
+- 密码用 BCrypt 加密后存库，同样的密码每次加密结果都不一样（自动加随机盐）。
+- 验证密码要用 `matches`，不能自己加密一遍再比较字符串。
+- 登录失败时，"用户不存在"和"密码错误"要返回同一句话，避免别人试探哪些用户名已注册。
+- 实体类（Entity）对应数据库，DTO 对应接口，两者要分开，否则数据库加字段可能不小心暴露到接口上（比如 password）。
+- 接口需要登录，不等于登录了就能操作任何数据。标记通知已读时要判断这条通知是不是自己的，否则就是越权访问漏洞。
+
+### 十九、分页
+
+- MyBatis-Plus 要注册 `PaginationInnerInterceptor` 才能分页。
+- **忘了注册不会报错**，只是不加 `LIMIT`，把整张表都查出来，数据量小的时候完全看不出来。
+- `selectPage` 会执行两条 SQL：一条 `COUNT` 算总数，一条带 `LIMIT` 取当前页。
+- `pageSize` 必须限制上限（比如 50），否则有人传 `pageSize=100000` 就能拖垮数据库。
+- 分页返回统一为 `page / pageSize / total / list`。
+
+### 二十、N+1 查询
+
+- 列表里每条数据都单独查一次关联信息（比如每个帖子查一次作者），就是 N+1 查询，数据量一大就很慢。
+- 正确做法：先收集这一页所有 `userId`，用 `IN` 一次查出来，放进 Map 再逐个取。
+- 不管一页有多少条，查作者都只有一条 SQL。
+- 查之前记得 `distinct` 去重。
+
+### 二十一、事务与并发
+
+- `@Transactional` 保证多个写操作要么都成功、要么都回滚，比如"插入评论"和"帖子评论数 +1"。
+- 事务默认只在 `RuntimeException` 时回滚。
+- 同一个类里方法互相调用，`@Transactional` 不会生效，因为走不到 Spring 的代理对象。
+- 计数要用 `UPDATE ... SET count = count + 1` 在数据库里原子地加，不能"先查出来、Java 里加 1、再写回去"，否则并发时会丢失更新。
+- 唯一索引是并发场景下的最后一道防线：重复点赞、重复注册都靠它兜底。
+- "先查有没有，再插入"在并发下不可靠，两个请求可能都查到"没有"。
+
+### 二十二、表设计经验
+
+- 冗余字段（`comment_count`、`like_count`）是用写入时多做一次更新，换取读取时不用 `COUNT(*)`。社区类应用读远多于写，这样划算。
+- 联合索引要匹配查询方式：评论列表查询是 `WHERE post_id=? ORDER BY id`，就建 `(post_id, id)`。
+- 自增 id 的顺序等于创建时间顺序，按主键倒序排即可，不用再建时间索引。
+- 互联网项目一般不用外键：外键影响写入性能，也不方便分库分表，数据完整性由代码保证。
+- 表名和字段名要避开 SQL 关键字：点赞表叫 `like_record`，已读字段叫 `is_read`。
+- 通知只存 `type` 和 `target_id`，不存拼好的文案，改文案和做多语言时不用动数据库。
+
+### 二十三、缓存（Cache Aside）
+
+- 最常用的缓存模式：读时先查缓存，没命中再查库并写入缓存；**写时先更新数据库，再删除缓存**。
+- 是"删除缓存"而不是"更新缓存"：并发更新时，更新缓存的顺序可能和更新数据库的顺序相反，导致缓存里留下旧值。
+- **删缓存必须在事务提交之后**，否则别的请求可能在提交前读到旧数据，又把旧值写回缓存。用 `TransactionSynchronization.afterCommit` 实现。
+- 缓存穿透：反复查不存在的 id。解决办法是缓存一个空标记，设较短的过期时间。
+- 缓存雪崩：大量缓存同时过期。解决办法是过期时间加随机值。
+- 用户相关的数据（比如"我是否点过赞"）不能放进公共缓存，否则会串号。
+- 缓存只是加速，删掉不影响正确性。真实数据要以数据库为准。
+
+### 二十四、幂等
+
+- 点赞接口传明确的目标状态 `liked: true/false`，而不是"点一下切换"。切换不幂等，连点两下或超时重试会出错。
+- 只有状态真的发生变化时才更新计数，重复点赞、重复取消都不会让计数出错。
+- 标记已读也要幂等，重复调用返回同样的结果。
+
+### 二十五、消息队列在业务里的真实用法
+
+- 核心链路（发帖、评论）和附属功能（通知）用消息队列解耦，附属功能不会拖慢或拖垮核心链路。
+- **消息必须在事务提交之后再发**，否则消费者可能比事务提交更快，查不到刚写入的数据。
+- 事务回滚时消息不会发出去，也就不会产生"幽灵通知"。
+- **默认情况下消费失败的消息会被无限重投**，日志会被刷爆。必须配置重试次数和 `default-requeue-rejected: false`。
+- 死信队列（DLQ）用来隔离重试多次仍然失败的消息：既不会丢，也不会拖垮队列，可以事后人工排查。
+- RabbitMQ 保证"至少送达一次"，消息可能重复消费，生产环境要做消费端幂等。
+
+### 二十六、时区问题
+
+- MySQL 容器默认时区是 UTC，`DEFAULT CURRENT_TIMESTAMP` 生成的时间会比北京时间早/晚 8 小时。
+- JDBC 连接串里的 `serverTimezone` 只是告诉驱动"服务器是什么时区"，不会去改 MySQL 本身的时区。
+- 正确做法是在 `docker-compose.yml` 里给 MySQL 加 `--default-time-zone=+08:00`。
+- 要写偏移量 `+08:00`，不要写 `Asia/Shanghai`：全新初始化时时区表还没导入，写时区名会导致 MySQL 启动失败。
+
+### 二十七、循环依赖
+
+- Spring Boot 从 2.6 开始默认禁止循环依赖，A 依赖 B、B 又依赖 A 会直接启动失败。
+- 遇到循环依赖时，让其中一方依赖更底层的东西。例如 `LikeService` 不依赖 `PostService`，而是直接用 `PostMapper`。
+
 ## 当前进度
 
-- 已创建 Spring Boot 项目
-- 已解决 JDK 配置问题
-- 已成功运行健康检查接口
-- 已创建 `ApiResponse`
-- 已把 `HealthController` 改为统一返回格式
-- 已安装 Docker Desktop
-- 已启动并验证 Docker 环境
-- 已完成 Docker 中间件阶段基础验证
-- 已完成 MySQL 接入
-- 已完成 `user` 表最小 CRUD 首轮验证
-- 已掌握数据库约束与控制台日志排错的基础方法
-- 已准备继续完善 user 模块或进入 Redis / RabbitMQ 接入阶段
+第 1 到第 5 阶段已经全部完成，第 6 阶段（应用容器化）还没开始。
+
+- 已完成 Spring Boot 骨架、健康检查接口、统一返回体
+- 已完成 Docker 中间件（MySQL / Redis / RabbitMQ）的启动和验证
+- 已完成 MySQL 接入和 `user` 表最小 CRUD
+- 已完成 Redis 接入（set/get 示例、帖子详情缓存、Refresh Token 状态）
+- 已完成 RabbitMQ 接入（最小收发示例、通知异步生成、死信队列）
+- 已完成 Spring Security + JWT：注册、登录、刷新令牌、登出、获取当前用户
+- 已完成全局异常处理与参数校验
+- 已完成帖子模块：发帖、分页列表、详情
+- 已完成评论模块：发表评论、分页列表
+- 已完成点赞模块：帖子/评论点赞与取消，计数与状态正确
+- 已完成通知模块：通知列表、未读数、标记已读
+- 已修复 MySQL 时区问题
+- 开发环境已经从 Windows 迁移到 macOS，两边都能跑
+
+第 5 阶段验收标准已全部达成，首版规划的 13 个接口也都实现了。
 
 ## 下一步
 
-1. 学会查看容器状态和日志
-2. 引入 MySQL 驱动和 MyBatis-Plus
-3. 配置数据源
-4. 创建第一张 `user` 表并完成最小 CRUD
+进入第 6 阶段：应用容器化和一键启动。
+
+1. 编写 Dockerfile，把 Spring Boot 应用打包成镜像
+2. 为应用增加 `docker` profile，区分开发态和部署态配置
+3. 理解容器内为什么不能再用 `localhost` 连其他容器，改成用服务名互联
+4. 调整 `docker-compose.yml`，把 app + mysql + redis + rabbitmq 一起编排
+5. 执行整套 `docker compose up -d`，验证接口在容器化环境下可正常访问
+
+后续可以继续优化的方向（不属于首版范围）：
+
+- 高并发点赞改用 Redis 计数，定时批量写回数据库
+- 未读通知数用 Redis 缓存
+- 消费端做幂等，避免重复消费产生重复通知
+- Redis 故障时降级为直接查数据库
+- 补充单元测试和集成测试
