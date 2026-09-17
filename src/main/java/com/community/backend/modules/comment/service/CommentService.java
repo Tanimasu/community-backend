@@ -10,6 +10,8 @@ import com.community.backend.modules.comment.entity.Comment;
 import com.community.backend.modules.comment.mapper.CommentMapper;
 import com.community.backend.modules.like.entity.LikeTargetType;
 import com.community.backend.modules.like.service.LikeService;
+import com.community.backend.modules.notification.mq.NotificationEventPublisher;
+import com.community.backend.modules.post.entity.Post;
 import com.community.backend.modules.post.service.PostService;
 import com.community.backend.modules.user.dto.UserBriefResponse;
 import com.community.backend.modules.user.entity.User;
@@ -27,21 +29,24 @@ public class CommentService {
     private final PostService postService;
     private final UserService userService;
     private final LikeService likeService;
+    private final NotificationEventPublisher notificationEventPublisher;
 
     public CommentService(CommentMapper commentMapper,
                           PostService postService,
                           UserService userService,
-                          LikeService likeService) {
+                          LikeService likeService,
+                          NotificationEventPublisher notificationEventPublisher) {
         this.commentMapper = commentMapper;
         this.postService = postService;
         this.userService = userService;
         this.likeService = likeService;
+        this.notificationEventPublisher = notificationEventPublisher;
     }
 
     // 插入评论和帖子评论数 +1 要么都成功，要么都回滚
     @Transactional
     public CommentResponse createComment(Long postId, Long userId, CreateCommentRequest request) {
-        postService.getPostOrThrow(postId);
+        Post post = postService.getPostOrThrow(postId);
 
         Comment comment = new Comment();
         comment.setPostId(postId);
@@ -51,6 +56,8 @@ public class CommentService {
         commentMapper.insert(comment);
 
         postService.increaseCommentCount(postId);
+        // 通知帖子作者：只是发一条消息，真正写通知由消费者异步完成
+        notificationEventPublisher.publishComment(userId, post.getUserId(), postId, request.content());
 
         Comment saved = commentMapper.selectById(comment.getId());
         return CommentResponse.from(saved, UserBriefResponse.from(userService.getUserById(userId)), false);

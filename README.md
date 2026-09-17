@@ -27,6 +27,8 @@ Spring Boot 3.x 社区后端学习项目。
 - 评论：发表评论、分页列表
 - 点赞：帖子/评论点赞与取消点赞，列表和详情返回当前用户是否已点赞
 - 帖子详情 Redis 缓存（Cache Aside，数据变更后删除缓存）
+- 通知：评论/点赞后通过 RabbitMQ 异步生成通知，支持通知列表、未读数、标记已读
+- RabbitMQ 消费失败重试 3 次后进入死信队列
 
 ## 项目结构
 
@@ -192,6 +194,14 @@ POST /api/likes
 { "targetType": "POST | COMMENT", "targetId": 1, "liked": true }
 ```
 
+通知接口（需要 Token）：
+
+```text
+GET  /api/notifications?page=1&pageSize=20&unreadOnly=false
+GET  /api/notifications/unread-count
+POST /api/notifications/{id}/read
+```
+
 分页返回格式：
 
 ```json
@@ -229,6 +239,12 @@ GET  /api/demo/mq/received
 - Port: `6379`
 
 ### RabbitMQ
+
+队列说明：
+
+- `notification.queue`：评论、点赞产生的通知消息
+- `notification.dlq`：死信队列，消费重试 3 次仍失败的消息会进这里
+- `demo.queue`：第 3 阶段的最小收发示例
 
 - AMQP: `localhost:5672`
 - Management UI: `http://localhost:15672`

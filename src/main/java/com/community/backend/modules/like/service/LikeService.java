@@ -10,6 +10,7 @@ import com.community.backend.modules.like.dto.LikeResponse;
 import com.community.backend.modules.like.entity.LikeRecord;
 import com.community.backend.modules.like.entity.LikeTargetType;
 import com.community.backend.modules.like.mapper.LikeRecordMapper;
+import com.community.backend.modules.notification.mq.NotificationEventPublisher;
 import com.community.backend.modules.post.entity.Post;
 import com.community.backend.modules.post.mapper.PostMapper;
 import com.community.backend.modules.post.service.PostCacheService;
@@ -30,15 +31,18 @@ public class LikeService {
     private final PostMapper postMapper;
     private final CommentMapper commentMapper;
     private final PostCacheService postCacheService;
+    private final NotificationEventPublisher notificationEventPublisher;
 
     public LikeService(LikeRecordMapper likeRecordMapper,
                        PostMapper postMapper,
                        CommentMapper commentMapper,
-                       PostCacheService postCacheService) {
+                       PostCacheService postCacheService,
+                       NotificationEventPublisher notificationEventPublisher) {
         this.likeRecordMapper = likeRecordMapper;
         this.postMapper = postMapper;
         this.commentMapper = commentMapper;
         this.postCacheService = postCacheService;
+        this.notificationEventPublisher = notificationEventPublisher;
     }
 
     // 点赞记录和点赞数在同一个事务里修改，保证两者始终一致
@@ -48,7 +52,7 @@ public class LikeService {
         Long targetId = request.targetId();
         boolean liked = request.liked();
 
-        getLikeCountOrThrow(targetType, targetId);
+        Long authorId = getAuthorIdOrThrow(targetType, targetId);
 
         // 只有状态真的发生变化时才修改计数：重复点赞、重复取消都不会让计数出错
         boolean changed = liked
@@ -56,6 +60,10 @@ public class LikeService {
                 : removeLikeRecord(userId, targetType, targetId);
         if (changed) {
             updateLikeCount(targetType, targetId, liked);
+            // 取消点赞不发通知
+            if (liked) {
+                notificationEventPublisher.publishLike(userId, authorId, targetType, targetId);
+            }
         }
 
         return new LikeResponse(targetType, targetId, liked, getLikeCountOrThrow(targetType, targetId));
@@ -117,22 +125,33 @@ public class LikeService {
         }
     }
 
+    private Long getAuthorIdOrThrow(LikeTargetType targetType, Long targetId) {
+        return switch (targetType) {
+            case POST -> getPostOrThrow(targetId).getUserId();
+            case COMMENT -> getCommentOrThrow(targetId).getUserId();
+        };
+    }
+
     private int getLikeCountOrThrow(LikeTargetType targetType, Long targetId) {
         return switch (targetType) {
-            case POST -> {
-                Post post = postMapper.selectById(targetId);
-                if (post == null) {
-                    throw new BusinessException(HttpStatus.NOT_FOUND, "帖子不存在");
-                }
-                yield post.getLikeCount();
-            }
-            case COMMENT -> {
-                Comment comment = commentMapper.selectById(targetId);
-                if (comment == null) {
-                    throw new BusinessException(HttpStatus.NOT_FOUND, "评论不存在");
-                }
-                yield comment.getLikeCount();
-            }
+            case POST -> getPostOrThrow(targetId).getLikeCount();
+            case COMMENT -> getCommentOrThrow(targetId).getLikeCount();
         };
+    }
+
+    private Post getPostOrThrow(Long postId) {
+        Post post = postMapper.selectById(postId);
+        if (post == null) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "帖子不存在");
+        }
+        return post;
+    }
+
+    private Comment getCommentOrThrow(Long commentId) {
+        Comment comment = commentMapper.selectById(commentId);
+        if (comment == null) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "评论不存在");
+        }
+        return comment;
     }
 }

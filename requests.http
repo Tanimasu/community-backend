@@ -110,6 +110,22 @@ Authorization: Bearer {{accessToken}}
   "liked": true
 }
 
+### 通知列表（需要 Token）
+GET http://localhost:8080/api/notifications?page=1&pageSize=20
+Authorization: Bearer {{accessToken}}
+
+### 只看未读通知
+GET http://localhost:8080/api/notifications?unreadOnly=true
+Authorization: Bearer {{accessToken}}
+
+### 未读通知数量
+GET http://localhost:8080/api/notifications/unread-count
+Authorization: Bearer {{accessToken}}
+
+### 把某条通知标记为已读
+POST http://localhost:8080/api/notifications/1/read
+Authorization: Bearer {{accessToken}}
+
 
 ### Redis：写入一个带 60 秒过期时间的 key
 POST http://localhost:8080/api/demo/redis?key=hello&value=world&ttlSeconds=60

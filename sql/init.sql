@@ -40,3 +40,17 @@ CREATE TABLE IF NOT EXISTS like_record (
     UNIQUE KEY uk_like_user_target (user_id, target_type, target_id),
     INDEX idx_like_target (target_type, target_id)
 );
+
+CREATE TABLE IF NOT EXISTS notification (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    receiver_id BIGINT NOT NULL,
+    sender_id BIGINT NOT NULL,
+    type VARCHAR(20) NOT NULL,
+    target_type VARCHAR(20) NOT NULL,
+    target_id BIGINT NOT NULL,
+    content VARCHAR(200),
+    is_read TINYINT(1) NOT NULL DEFAULT 0,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_notification_receiver (receiver_id, id),
+    INDEX idx_notification_unread (receiver_id, is_read)
+);
